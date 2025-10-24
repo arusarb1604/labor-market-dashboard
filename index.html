@@ -1,0 +1,363 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Labour Market Conditions — Dashboard</title>
+  <meta name="description" content="Dashboard showing current labour market conditions relative to the last 12 months, with aggregation and occupation-level toggles." />
+  <meta name="color-scheme" content="light dark" />
+  <style>
+    :root{
+      --bg:#f7f7f8; --text:#0f172a; --muted:#64748b; --line:#e5e7eb; --card:#ffffff;
+      --brand:#111827; --green:#16a34a; --red:#dc2626; --accent:#2563eb;
+    }
+    *{box-sizing:border-box}
+    html,body{margin:0;padding:0;font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial;color:var(--text);background:var(--bg)}
+    a{color:var(--accent)}
+    header{background:var(--card);border-bottom:1px solid var(--line)}
+    .wrap{max-width:1040px;margin:0 auto;padding:0 16px}
+    .nav{display:flex;align-items:center;gap:14px;padding:14px 0}
+    .logo{inline-size:34px;block-size:34px;border-radius:50%;background:conic-gradient(from 180deg,#111827,#111827 50%,#334155 50%,#334155)}
+    h1{font-size:28px;margin:0 0 4px 0}
+    h2{font-size:18px;margin:0}
+    main{padding:22px 0 40px}
+    .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+    .grid{display:grid;gap:16px;grid-template-columns:1fr}
+    @media (min-width:880px){.grid{grid-template-columns:1fr 1fr}}
+    .row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+    .spacer{flex:1}
+    .subtle{color:var(--muted)}
+    .foot{font-size:12px;color:var(--muted)}
+    /* Toggle groups */
+    .group{display:flex;gap:8px;flex-wrap:wrap}
+    .pill{padding:8px 12px;border:1px solid #d1d5db;border-radius:999px;background:#fff;color:var(--text);font-size:14px;cursor:pointer}
+    .pill[aria-pressed="true"]{background:var(--brand);color:#fff;border-color:var(--brand)}
+    .controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:12px}
+    .btn-link{font-size:14px;text-decoration:underline}
+    /* Form */
+    form.signup{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+    form.signup input{padding:10px 12px;border:1px solid #d1d5db;border-radius:8px;min-width:260px}
+    form.signup button{padding:10px 14px;border-radius:8px;background:var(--brand);color:#fff;border:0;cursor:pointer}
+    /* Charts */
+    .chart-wrap{inline-size:100%;block-size:360px;position:relative}
+    canvas{position:absolute;inset:0;inline-size:100%;block-size:100%}
+    /* Dark mode tweak */
+    @media (prefers-color-scheme:dark){
+      :root{--bg:#0b1220;--text:#e5e7eb;--muted:#94a3b8;--line:#23324a;--card:#0f172a;--brand:#e5e7eb}
+      .pill{background:#0f172a;border-color:#334155}
+      .pill[aria-pressed="true"]{background:#e5e7eb;color:#0f172a;border-color:#e5e7eb}
+      .btn-link{color:#93c5fd}
+    }
+    noscript{display:block;margin-top:12px;color:#b91c1c}
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap nav" role="banner">
+      <div class="logo" aria-hidden="true"></div>
+      <div>
+        <div class="subtle" style="font-size:13px">Norwegian Labour and Welfare Administration</div>
+        <h1 aria-live="polite">Labour Market Conditions</h1>
+        <div class="subtle">Current conditions relative to the average of the previous 12 months</div>
+      </div>
+    </div>
+  </header>
+
+  <main class="wrap" role="main">
+    <section class="card" aria-labelledby="config">
+      <h2 id="config">Configuration</h2>
+      <div class="controls" role="group" aria-label="Controls">
+        <div class="group" role="group" aria-label="Aggregation">
+          <span class="subtle" style="align-self:center">Aggregation:</span>
+          <button class="pill agg" data-agg="Municipality" aria-pressed="true">Municipality</button>
+          <button class="pill agg" data-agg="District" aria-pressed="false">District</button>
+          <button class="pill agg" data-agg="National" aria-pressed="false">National</button>
+        </div>
+        <div class="group" role="group" aria-label="Occupation level">
+          <span class="subtle" style="align-self:center">Level:</span>
+          <button class="pill lvl" data-level="2" aria-pressed="true">2-digit</button>
+          <button class="pill lvl" data-level="4" aria-pressed="false">4-digit</button>
+        </div>
+        <div class="spacer"></div>
+        <a href="#" class="btn-link" id="downloadCsv">Download data (CSV)</a>
+        <a href="#" class="btn-link" id="printPage">Print</a>
+        <a href="https://www.nav.no" target="_blank" rel="noreferrer" class="btn-link">nav.no</a>
+      </div>
+      <noscript>This page requires JavaScript to render charts.</noscript>
+    </section>
+
+    <section class="grid" style="margin-top:16px">
+      <article class="card" aria-labelledby="occA">
+        <div class="row">
+          <h2 id="occA">Your occupation</h2>
+          <div class="subtle" id="idxA" style="margin-left:auto;font-size:14px">Index vs 12-mo avg: <b>—</b></div>
+        </div>
+        <div class="subtle" style="margin-top:6px">Interpretation updates live as you change options.</div>
+        <div class="msg" id="msgA" aria-live="polite" style="margin-top:8px;font-size:16px"></div>
+        <div class="chart-wrap"><canvas id="chartA" aria-label="Line chart A" role="img"></canvas></div>
+      </article>
+
+      <article class="card" aria-labelledby="occB">
+        <div class="row">
+          <h2 id="occB">Closest occupation</h2>
+          <div class="subtle" id="idxB" style="margin-left:auto;font-size:14px">Index vs 12-mo avg: <b>—</b></div>
+        </div>
+        <div class="msg" id="msgB" aria-live="polite" style="margin-top:8px;font-size:16px"></div>
+        <div class="chart-wrap"><canvas id="chartB" aria-label="Line chart B" role="img"></canvas></div>
+      </article>
+    </section>
+
+    <section style="margin-top:16px">
+      <div class="card">
+        <h2 style="font-size:18px;font-weight:600">Stay informed</h2>
+        <p class="subtle">Sign up to receive research updates.</p>
+        <form class="signup" id="signupForm" novalidate>
+          <input type="email" name="email" placeholder="you@example.com" autocomplete="email" required aria-label="Email address" />
+          <button type="submit">Sign up</button>
+        </form>
+        <p class="foot" style="margin-top:8px">By submitting, you consent to be contacted about research updates.</p>
+      </div>
+    </section>
+
+    <section style="margin-top:12px" class="foot">
+      Index definition: 100 = average of the previous 12 months. Above/below 100 indicates stronger/weaker conditions than usual.
+    </section>
+  </main>
+
+  <script>
+    // ---------- Helpers ----------
+    const $ = (sel, ctx=document) => ctx.querySelector(sel);
+    const $$ = (sel, ctx=document) => Array.from(ctx.querySelectorAll(sel));
+    const qp = new URLSearchParams(location.search);
+    const fmtPct = x => (x>=0?'+':'') + Math.round(x) + '%';
+
+    function ymString(d){ return d.toISOString().slice(0,7); }
+    function monthName(ym){
+      const [y,m] = ym.split('-').map(Number);
+      const d = new Date(Date.UTC(y,(m||1)-1,1));
+      return d.toLocaleString(undefined,{month:'short'});
+    }
+    function addMonthsUTC(d,k){ return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth()+k, 1)); }
+
+    // Deterministic pseudo-random
+    function rng(seed){ let s=seed>>>0; return ()=> (s = (s*1664525 + 1013904223)>>>0, (s&0xffff)/0x10000); }
+
+    // Generate 13 months then display last 12; parameters depend on agg + level.
+    function series13(seed, agg, level){
+      const byAgg = {
+        Municipality: { amplitude: 8, noise: 2.0 },
+        District:     { amplitude: 6, noise: 1.6 },
+        National:     { amplitude: 4, noise: 1.2 },
+      };
+      const scaleLvl = (level==4? 1.25 : 1.0); // more granularity swings for 4-digit
+      const p = byAgg[agg]; const rand = rng(seed);
+      const now = new Date();
+      const sep = new Date(Date.UTC(now.getUTCFullYear(), 8, 1)); // Sep of current year
+      const out = [];
+      for(let i=12;i>=0;i--){
+        const d = addMonthsUTC(sep,-i);
+        const phase = ((12-i)/12)*2*Math.PI;
+        const base = 100 + (p.amplitude*scaleLvl)*Math.sin(phase);
+        const noise = (rand()-0.5) * (p.noise*scaleLvl);
+        out.push({month: ymString(d), value: Math.round(base + noise)});
+      }
+      return out;
+    }
+
+    function countPrev12Higher(s13){
+      const cur = s13[12].value; let c=0;
+      for(let i=0;i<12;i++) if(s13[i].value>cur) c++;
+      return c;
+    }
+
+    function enforcePrev12Count(s13, want){
+      const s = s13.map(p=>({...p}));
+      const cur = s[12].value; let idx=11;
+      let c = countPrev12Higher(s);
+      // Lower earlier values until desired count matches (or raise slightly)
+      while(c>want && idx>=0){ if(s[idx].value>cur){ s[idx].value = Math.min(cur-0.5,s[idx].value); c=countPrev12Higher(s);} idx--; }
+      idx=11;
+      while(c<want && idx>=0){ if(s[idx].value<=cur){ s[idx].value = cur+0.5; c=countPrev12Higher(s);} idx--; }
+      return s;
+    }
+
+    function indexify(display12){
+      const avg = display12.reduce((a,b)=>a+b.value,0)/display12.length;
+      const vals = display12.map(p=>p.value/(avg||1)*100);
+      const currentIndex = Math.round(vals[vals.length-1]);
+      return { avg, values: vals, currentIndex };
+    }
+
+    function buildDisplay(seed, agg, level, desiredCount){
+      const base13 = series13(seed, agg, level);
+      // Nudge current month to avoid ties & simulate mild deterioration
+      base13[12].value -= (seed%2 ? 5 : 3);
+      const fixed13 = enforcePrev12Count(base13, desiredCount);
+      const pctVsSepLastYear = ((fixed13[12].value - fixed13[0].value) / fixed13[0].value) * 100;
+      const display12 = fixed13.slice(1);
+      const { values, currentIndex } = indexify(display12);
+      const labels = display12.map(d=>d.month);
+      const count = countPrev12Higher(fixed13);
+      return { labels, values, currentIndex, pctVsSepLastYear, count };
+    }
+
+    // ---------- Canvas line chart (no libs) ----------
+    function renderChart(canvas, labels, values){
+      const dpr = Math.max(1, window.devicePixelRatio || 1);
+      const rect = canvas.getBoundingClientRect();
+      const W = Math.max(320, rect.width);
+      const H = Math.max(220, rect.height);
+      canvas.width = Math.round(W*dpr); canvas.height = Math.round(H*dpr);
+      const ctx = canvas.getContext('2d'); ctx.setTransform(dpr,0,0,dpr,0,0);
+
+      const m = {left:46,right:12,top:10,bottom:52};
+      const plotW = W - m.left - m.right;
+      const plotH = H - m.top - m.bottom;
+
+      const yMin = 70, yMax = 130;
+      const x = i => m.left + (i*(plotW/(labels.length-1||1)));
+      const y = v => m.top + (yMax - v) * (plotH/(yMax-yMin));
+
+      ctx.clearRect(0,0,W,H);
+
+      // grid + y ticks
+      ctx.strokeStyle = '#e5e7eb'; ctx.lineWidth = 1;
+      ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--muted').trim() || '#64748b';
+      ctx.font = '12px system-ui'; ctx.textAlign='right'; ctx.textBaseline='middle';
+      for(let v=yMin; v<=yMax; v+=10){
+        const yy = y(v); ctx.beginPath(); ctx.moveTo(m.left,yy); ctx.lineTo(W-m.right,yy); ctx.stroke();
+        ctx.fillText(String(v), m.left-6, yy);
+      }
+
+      // x labels rotated
+      ctx.textAlign='right'; ctx.textBaseline='top';
+      for(let i=0;i<labels.length;i++){
+        const xx = x(i), label = monthName(labels[i]);
+        ctx.save(); ctx.translate(xx, H-m.bottom+4); ctx.rotate(-Math.PI/4); ctx.fillText(label, 0, 0); ctx.restore();
+      }
+
+      // 100 ref line
+      const y100 = y(100); ctx.strokeStyle = '#111827'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(m.left,y100); ctx.lineTo(W-m.right,y100); ctx.stroke();
+      ctx.fillStyle = '#111827'; ctx.textAlign='left'; ctx.textBaseline='top';
+      ctx.fillText('↑ 12-month average', m.left+6, y100+6);
+
+      // Segmented line with color by position vs 100
+      function segColor(v1,v2){ const a1=v1>=100,a2=v2>=100; return (a1&&a2)?'#16a34a':((!a1&&!a2)?'#dc2626':(v2>=100?'#16a34a':'#dc2626')); }
+      ctx.lineWidth = 2;
+      for(let i=1;i<values.length;i++){
+        const v1=values[i-1], v2=values[i];
+        if(v1==null || v2==null) continue;
+        ctx.strokeStyle = segColor(v1,v2);
+        ctx.beginPath(); ctx.moveTo(x(i-1), y(v1)); ctx.lineTo(x(i), y(v2)); ctx.stroke();
+      }
+      // End point dot
+      const iLast = values.length-1;
+      ctx.fillStyle = values[iLast]>=100 ? '#16a34a' : '#dc2626';
+      ctx.beginPath(); ctx.arc(x(iLast), y(values[iLast]), 3, 0, 2*Math.PI); ctx.fill();
+    }
+
+    // ---------- State & UI ----------
+    const state = {
+      agg: qp.get('agg') || 'Municipality',
+      level: (qp.get('level')==='4'? '4' : '2'),
+      utm: qp.get('utm') || ''
+    };
+
+    const idxAEl = $('#idxA b'), idxBEl = $('#idxB b');
+    const msgAEl = $('#msgA'), msgBEl = $('#msgB');
+    const canvasA = $('#chartA'), canvasB = $('#chartB');
+
+    function setUrl(){
+      const p = new URLSearchParams(location.search);
+      p.set('agg', state.agg); p.set('level', state.level);
+      if(state.utm) p.set('utm', state.utm); else p.delete('utm');
+      const url = location.pathname + '?' + p.toString();
+      history.replaceState(null,'',url);
+    }
+
+    function renderAll(){
+      setUrl();
+      const A = buildDisplay(7,  state.agg, state.level, 10);
+      const B = buildDisplay(19, state.agg, state.level, 9);
+
+      idxAEl.textContent = String(A.currentIndex);
+      idxBEl.textContent = String(B.currentIndex);
+
+      msgAEl.innerHTML = `There are fewer job seekers per vacancy than in <b>${A.count}</b> of the previous 12 months. Hiring will be more <b class="red" style="color:var(--red)">difficult</b> than usual.
+        <div class="subtle" style="font-size:13px;margin-top:4px">Change since September last year: <b>${fmtPct(A.pctVsSepLastYear)}</b></div>`;
+      msgBEl.innerHTML = `There are fewer job seekers per vacancy than in <b>${B.count}</b> of the previous 12 months. Conditions are <b class="red" style="color:var(--red)">tight</b>, but not as tight as in your occupation.
+        <div class="subtle" style="font-size:13px;margin-top:4px">Change since September last year: <b>${fmtPct(B.pctVsSepLastYear)}</b></div>`;
+
+      renderChart(canvasA, A.labels, A.values);
+      renderChart(canvasB, B.labels, B.values);
+
+      // Stash for CSV
+      state.A = A; state.B = B;
+    }
+
+    // Toggle wiring
+    function bindToggle(className, key, allowed){
+      $$(className).forEach(btn=>{
+        btn.addEventListener('click', ()=>{
+          $$(className).forEach(b=>b.setAttribute('aria-pressed','false'));
+          btn.setAttribute('aria-pressed','true');
+          state[key] = btn.dataset[allowed];
+          renderAll();
+        });
+        // Space/Enter activation for accessibility
+        btn.addEventListener('keydown', (e)=>{
+          if(e.key===' '||e.key==='Enter'){ e.preventDefault(); btn.click(); }
+        });
+      });
+      // Initialize pressed state from state
+      $$(className).forEach(b=>b.setAttribute('aria-pressed', String(b.dataset[allowed]==state[key])));
+    }
+
+    bindToggle('.agg','agg','agg');     // aggregation group
+    bindToggle('.lvl','level','level'); // level group
+
+    // Resize observer for crisper redraws
+    const ro = new ResizeObserver(()=>renderAll());
+    ro.observe($('.chart-wrap')); ro.observe($$('.chart-wrap')[1]);
+
+    // CSV download
+    $('#downloadCsv').addEventListener('click', (e)=>{
+      e.preventDefault();
+      const rows = [];
+      rows.push(['month','primary_index','closest_index','aggregation','level','timestamp'].join(','));
+      for(let i=0;i<state.A.labels.length;i++){
+        rows.push([state.A.labels[i], Math.round(state.A.values[i]), Math.round(state.B.values[i]), state.agg, state.level, new Date().toISOString()].join(','));
+      }
+      const blob = new Blob([rows.join('\n')], {type:'text/csv;charset=utf-8;'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href=url; a.download=`labour_market_${state.agg.toLowerCase()}_lvl${state.level}.csv`;
+      document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+    });
+
+    // Print
+    $('#printPage').addEventListener('click', (e)=>{ e.preventDefault(); window.print(); });
+
+    // Signup → mailto with metadata + UTM passthrough
+    $('#signupForm').addEventListener('submit', (e)=>{
+      e.preventDefault();
+      const email = new FormData(e.target).get('email')?.toString().trim() || '';
+      const ok = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+      if(!ok){ alert('Please enter a valid email address.'); return; }
+      const subject = 'Research updates — sign-up';
+      const body =
+        'Please add me to updates for the labour market dashboard.' +
+        '\nEmail: ' + email +
+        '\nAggregation: ' + state.agg +
+        '\nOccupation level: ' + state.level +
+        (state.utm ? '\nUTM: ' + state.utm : '') +
+        '\nTimestamp: ' + new Date().toISOString();
+      location.href = 'mailto:research@nav.no?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body);
+    });
+
+    // Initial render
+    renderAll();
+  </script>
+</body>
+</html>
