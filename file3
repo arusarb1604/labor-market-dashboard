@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Labour Market Conditions — Dashboard</title>
+<meta name="description" content="Interactive dashboard showing labour market conditions relative to the past 12 months, now with bilingual interface and customizable chart style." />
+<meta name="color-scheme" content="light dark" />
+<style>
+:root{
+ --bg:#f7f7f8;--text:#0f172a;--muted:#64748b;--line:#e5e7eb;--card:#ffffff;
+ --brand:#111827;--green:#16a34a;--red:#dc2626;--accent:#2563eb;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial;color:var(--text);background:var(--bg)}
+a{color:var(--accent)}
+header{background:var(--card);border-bottom:1px solid var(--line)}
+.wrap{max-width:1040px;margin:0 auto;padding:0 16px}
+.nav{display:flex;align-items:center;justify-content:space-between;padding:14px 0;flex-wrap:wrap;gap:10px}
+.logo{width:34px;height:34px;border-radius:50%;background:conic-gradient(from 180deg,#111827,#111827 50%,#334155 50%,#334155)}
+h1{font-size:26px;margin:0}
+h2{font-size:18px;margin:0}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+.grid{display:grid;gap:16px}@media(min-width:880px){.grid{grid-template-columns:1fr 1fr}}
+.row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.subtle{color:var(--muted)}
+.spacer{flex:1}
+.group{display:flex;gap:8px;flex-wrap:wrap}
+.pill{padding:8px 12px;border:1px solid #d1d5db;border-radius:999px;background:#fff;color:var(--text);font-size:14px;cursor:pointer}
+.pill[aria-pressed="true"]{background:var(--brand);color:#fff;border-color:var(--brand)}
+.controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:12px}
+.btn-link{font-size:14px;text-decoration:underline;cursor:pointer}
+form.signup{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+form.signup input{padding:10px 12px;border:1px solid #d1d5db;border-radius:8px;min-width:260px}
+form.signup button{padding:10px 14px;border-radius:8px;background:var(--brand);color:#fff;border:0;cursor:pointer}
+.chart-wrap{width:100%;height:360px;position:relative}
+canvas{position:absolute;inset:0;width:100%;height:100%}
+@media(prefers-color-scheme:dark){
+ :root{--bg:#0b1220;--text:#e5e7eb;--muted:#94a3b8;--line:#23324a;--card:#0f172a;--brand:#e5e7eb}
+ .pill{background:#0f172a;border-color:#334155}
+ .pill[aria-pressed="true"]{background:#e5e7eb;color:#0f172a;border-color:#e5e7eb}
+ .btn-link{color:#93c5fd}
+}
+noscript{display:block;margin-top:12px;color:#b91c1c}
+</style>
+</head>
+<body>
+<header>
+ <div class="wrap nav" role="banner">
+   <div style="display:flex;align-items:center;gap:12px">
+     <div class="logo" aria-hidden="true"></div>
+     <div>
+       <div class="subtle" id="agency">Norwegian Labour and Welfare Administration</div>
+       <h1 id="mainTitle">Labour Market Conditions</h1>
+       <div class="subtle" id="subtitle">Current conditions relative to the average of the previous 12 months</div>
+     </div>
+   </div>
+   <div style="display:flex;gap:8px;flex-wrap:wrap">
+     <button class="pill" id="langToggle">🇬🇧 English</button>
+     <button class="pill" id="chartToggle">📈 Line</button>
+   </div>
+ </div>
+</header>
+
+<main class="wrap" role="main">
+ <section class="card" aria-labelledby="config">
+   <h2 id="config">Configuration</h2>
+   <div class="controls" role="group">
+     <div class="group">
+       <span class="subtle" id="aggLabel">Aggregation:</span>
+       <button class="pill agg" data-agg="Municipality" aria-pressed="true">Municipality</button>
+       <button class="pill agg" data-agg="District" aria-pressed="false">District</button>
+       <button class="pill agg" data-agg="National" aria-pressed="false">National</button>
+     </div>
+     <div class="group">
+       <span class="subtle" id="lvlLabel">Level:</span>
+       <button class="pill lvl" data-level="2" aria-pressed="true">2-digit</button>
+       <button class="pill lvl" data-level="4" aria-pressed="false">4-digit</button>
+     </div>
+     <div class="spacer"></div>
+     <a class="btn-link" id="downloadCsv">Download data (CSV)</a>
+     <a class="btn-link" id="printPage">Print</a>
+     <a href="https://www.nav.no" target="_blank" rel="noreferrer" class="btn-link">nav.no</a>
+   </div>
+   <noscript>This page requires JavaScript to render charts.</noscript>
+ </section>
+
+ <section class="grid" style="margin-top:16px">
+   <article class="card">
+     <div class="row">
+       <h2 id="occA">Your occupation</h2>
+       <div class="subtle" id="idxA" style="margin-left:auto;font-size:14px">Index vs 12-mo avg: <b>—</b></div>
+     </div>
+     <div class="msg" id="msgA" style="margin-top:8px;font-size:16px"></div>
+     <div class="chart-wrap"><canvas id="chartA"></canvas></div>
+   </article>
+
+   <article class="card">
+     <div class="row">
+       <h2 id="occB">Closest occupation</h2>
+       <div class="subtle" id="idxB" style="margin-left:auto;font-size:14px">Index vs 12-mo avg: <b>—</b></div>
+     </div>
+     <div class="msg" id="msgB" style="margin-top:8px;font-size:16px"></div>
+     <div class="chart-wrap"><canvas id="chartB"></canvas></div>
+   </article>
+ </section>
+
+ <section style="margin-top:16px">
+   <div class="card">
+     <h2 id="stayInformed">Stay informed</h2>
+     <p class="subtle" id="signupDesc">Sign up to receive research updates.</p>
+     <form class="signup" id="signupForm">
+       <input type="email" name="email" placeholder="you@example.com" required />
+       <button type="submit" id="signupBtn">Sign up</button>
+     </form>
+     <p class="foot" style="margin-top:8px" id="consentText">By submitting, you consent to be contacted about research updates.</p>
+   </div>
+ </section>
+
+ <section style="margin-top:12px" class="foot" id="indexNote">
+   Index definition: 100 = average of the previous 12 months. Above/below 100 indicates stronger/weaker conditions than usual.
+ </section>
+</main>
+
+<script>
+// ---------- Language Data ----------
+const textMap = {
+ en:{
+  agency:"Norwegian Labour and Welfare Administration",
+  mainTitle:"Labour Market Conditions",
+  subtitle:"Current conditions relative to the average of the previous 12 months",
+  config:"Configuration",aggLabel:"Aggregation:",lvlLabel:"Level:",
+  occA:"Your occupation",occB:"Closest occupation",
+  stayInformed:"Stay informed",signupDesc:"Sign up to receive research updates.",
+  signupBtn:"Sign up",consentText:"By submitting, you consent to be contacted about research updates.",
+  indexNote:"Index definition: 100 = average of the previous 12 months. Above/below 100 indicates stronger/weaker conditions than usual.",
+  lang:"🇬🇧 English"
+ },
+ no:{
+  agency:"Arbeids- og velferdsetaten (NAV)",
+  mainTitle:"Arbeidsmarkedsforhold",
+  subtitle:"Nåværende forhold relativt til gjennomsnittet de siste 12 månedene",
+  config:"Konfigurasjon",aggLabel:"Aggregering:",lvlLabel:"Nivå:",
+  occA:"Yrket ditt",occB:"Nærmeste yrke",
+  stayInformed:"Hold deg oppdatert",signupDesc:"Meld deg på for forskningsoppdateringer.",
+  signupBtn:"Abonner",consentText:"Ved å sende inn samtykker du i å bli kontaktet om forskningsoppdateringer.",
+  indexNote:"Indeksdefinisjon: 100 = gjennomsnittet av de siste 12 månedene. Over/under 100 indikerer sterkere/svakere forhold.",
+  lang:"🇳🇴 Norsk"
+};
+let lang = localStorage.getItem('lang') || 'en';
+function updateLanguage(){
+ const t=textMap[lang];
+ for(const k in t){
+   const el=document.getElementById(k);
+   if(el) el.textContent=t[k];
+ }
+ document.getElementById('langToggle').textContent=(lang==='en'?'🇳🇴 Norsk':'🇬🇧 English');
+}
+document.getElementById('langToggle').onclick=()=>{lang=(lang==='en'?'no':'en');localStorage.setItem('lang',lang);updateLanguage();};
+updateLanguage();
+
+// ---------- Chart Style ----------
+let chartStyle='line';
+document.getElementById('chartToggle').onclick=()=>{
+ chartStyle=(chartStyle==='line'?'bar':'line');
+ document.getElementById('chartToggle').textContent=(chartStyle==='line'?'📈 Line':'📊 Bar');
+ renderAll();
+};
+
+// ---------- Existing Helpers ----------
+const $=(s,c=document)=>c.querySelector(s);
+const $$=(s,c=document)=>Array.from(c.querySelectorAll(s));
+const qp=new URLSearchParams(location.search);
+const fmtPct=x=>(x>=0?'+':'')+Math.round(x)+'%';
+function ymString(d){return d.toISOString().slice(0,7);}
+function monthName(ym){const[y,m]=ym.split('-').map(Number);const d=new Date(Date.UTC(y,(m||1)-1,1));return d.toLocaleString(undefined,{month:'short'});}
+function addMonthsUTC(d,k){return new Date(Date.UTC(d.getUTCFullYear(),d.getUTCMonth()+k,1));}
+function rng(seed){let s=seed>>>0;return()=> (s=(s*1664525+1013904223)>>>0,(s&0xffff)/0x10000);}
+function series13(seed,agg,level){
+ const byAgg={Municipality:{amplitude:8,noise:2.0},District:{amplitude:6,noise:1.6},National:{amplitude:4,noise:1.2}};
+ const scale=(level==4?1.25:1.0);const p=byAgg[agg];const rand=rng(seed);
+ const now=new Date();const sep=new Date(Date.UTC(now.getUTCFullYear(),8,1));
+ const out=[];for(let i=12;i>=0;i--){const d=addMonthsUTC(sep,-i);const phase=((12-i)/12)*2*Math.PI;const base=100+(p.amplitude*scale)*Math.sin(phase);const noise=(rand()-0.5)*(p.noise*scale);out.push({month:ymString(d),value:Math.round(base+noise)});}
+ return out;
+}
+function countPrev12Higher(s13){const cur=s13[12].value;let c=0;for(let i=0;i<12;i++)if(s13[i].value>cur)c++;return c;}
+function enforcePrev12Count(s13,want){const s=s13.map(p=>({...p}));const cur=s[12].value;let idx=11,c=countPrev12Higher(s);
+ while(c>want&&idx>=0){if(s[idx].value>cur){s[idx].value=Math.min(cur-0.5,s[idx].value);c=countPrev12Higher(s);}idx--;}
+ idx=11;while(c<want&&idx>=0){if(s[idx].value<=cur){s[idx].value=cur+0.5;c=countPrev12Higher(s);}idx--;}
+ return s;
+}
+function indexify(display12){const avg=display12.reduce((a,b)=>a+b.value,0)/display12.length;const vals=display12.map(p=>p.value/(avg||1)*100);const currentIndex=Math.round(vals[vals.length-1]);return{avg,values:vals,currentIndex};}
+function buildDisplay(seed,agg,level,want){const base13=series13(seed,agg,level);base13[12].value-=(seed%2?5:3);const fixed=enforcePrev12Count(base13,want);const pct=((fixed[12].value-fixed[0].value)/fixed[0].value)*100;const display=fixed.slice(1);const{values,currentIndex}=indexify(display);const labels=display.map(d=>d.month);const count=countPrev12Higher(fixed);return{labels,values,currentIndex,pct,count};}
+
+// ---------- Rendering ----------
+function renderChart(canvas,labels,values){
+ const dpr=Math.max(1,window.devicePixelRatio||1);
+ const rect=canvas.getBoundingClientRect();
+ const W=Math.max(320,rect.width),H=Math.max(220,rect.height);
+ canvas.width=W*dpr;canvas.height=H*dpr;
+ const ctx=canvas.getContext('2d');ctx.setTransform(dpr,0,0,dpr,0,0);
+ const m={l:46,r:12,t:10,b:52},plotW=W-m.l-m.r,plotH=H-m.t-m.b;
+ const yMin=70,yMax=130;const x=i=>m.l+(i*(plotW/(labels.length-1||1)));const y=v=>m.t+(yMax-v)*(plotH/(yMax-yMin));
+ ctx.clearRect(0,0,W,H);
+ ctx.strokeStyle='#e5e7eb';ctx.lineWidth=1;ctx.fillStyle=getComputedStyle(document.documentElement).getPropertyValue('--muted')||'#64748b';ctx.font='12px system-ui';ctx.textAlign='right';ctx.textBaseline='middle';
+ for(let v=yMin;v<=yMax;v+=10){const yy=y(v);ctx.beginPath();ctx.moveTo(m.l,yy);ctx.lineTo(W-m.r,yy);ctx.stroke();ctx.fillText(String(v),m.l-6,yy);}
+ ctx.textAlign='right';ctx.textBaseline='top';
+ for(let i=0;i<labels.length;i++){const xx=x(i),label=monthName(labels[i]);ctx.save();ctx.translate(xx,H-m.b+4);ctx.rotate(-Math.PI/4);ctx.fillText(label,0,0);ctx.restore();}
+ const y100=y(100);ctx.strokeStyle='#111827';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(m.l,y100);ctx.lineTo(W-m.r,y100);ctx.stroke();
+ if(chartStyle==='line'){
+  function segColor(v1,v2){const a1=v1>=100,a2=v2>=100;return(a1&&a2)?'#16a34a':((!a1&&!a2)?'#dc2626':(v2>=100?'#16a34a':'#dc2626'));}
+  ctx.lineWidth=2;for(let i=1;i<values.length;i++){const v1=values[i-1],v2=values[i];ctx.strokeStyle=segColor(v1,v2);ctx.beginPath();ctx.moveTo(x(i-1),y(v1));ctx.lineTo(x(i),y(v2));ctx.stroke();}
+  const iLast=values.length-1;ctx.fillStyle=values[iLast]>=100?'#16a34a':'#dc2626';ctx.beginPath();ctx.arc(x(iLast),y(values[iLast]),3,0,2*Math.PI);ctx.fill();
+ }else{
+  const barW=plotW/labels.length*0.6;ctx.fillStyle=getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
+  for(let i=0;i<values.length;i++){const barH=(values[i]-yMin)/(yMax-yMin)*plotH;ctx.fillRect(x(i)-barW/2,y(values[i]),barW,H-m.b-y(values[i]));}
+ }
+}
+
+// ---------- State & UI ----------
+const state={agg:qp.get('agg')||'Municipality',level:(qp.get('level')==='4'?'4':'2'),utm:qp.get('utm')||''};
+const idxAEl=$('#idxA b'),idxBEl=$('#idxB b'),msgAEl=$('#msgA'),msgBEl=$('#msgB'),canvasA=$('#chartA'),canvasB=$('#chartB');
+
+function setUrl(){const p=new URLSearchParams(location.search);p.set('agg',state.agg);p.set('level',state.level);const url=location.pathname+'?'+p.toString();history.replaceState…it goes on (the rest of the script below). Copy this continuation right after the last line in your file so the page works end-to-end:  
+
+```html
+(null,'',url);}
+function renderAll(){
+ setUrl();
+ const A=buildDisplay(7,state.agg,state.level,10);
+ const B=buildDisplay(19,state.agg,state.level,9);
+ idxAEl.textContent=String(A.currentIndex);
+ idxBEl.textContent=String(B.currentIndex);
+ msgAEl.innerHTML=`${lang==='no'
+  ?`Det er færre arbeidssøkere per stilling enn i <b>${A.count}</b> av de siste 12 månedene. Rekruttering vil være <b style="color:var(--red)">vanskeligere</b> enn vanlig.`
+  :`There are fewer job seekers per vacancy than in <b>${A.count}</b> of the previous 12 months. Hiring will be more <b style="color:var(--red)">difficult</b> than usual.`}
+  <div class="subtle" style="font-size:13px;margin-top:4px">${lang==='no'?'Endring siden september i fjor:':'Change since September last year:'} <b>${fmtPct(A.pct)}</b></div>`;
+ msgBEl.innerHTML=`${lang==='no'
+  ?`Det er færre arbeidssøkere per stilling enn i <b>${B.count}</b> av de siste 12 månedene. Forholdene er <b style="color:var(--red)">stramme</b>, men ikke like stramme som i ditt yrke.`
+  :`There are fewer job seekers per vacancy than in <b>${B.count}</b> of the previous 12 months. Conditions are <b style="color:var(--red)">tight</b>, but not as tight as in your occupation.`}
+  <div class="subtle" style="font-size:13px;margin-top:4px">${lang==='no'?'Endring siden september i fjor:':'Change since September last year:'} <b>${fmtPct(B.pct)}</b></div>`;
+ renderChart(canvasA,A.labels,A.values);
+ renderChart(canvasB,B.labels,B.values);
+ state.A=A;state.B=B;
+}
+function bindToggle(cls,key,dataKey){
+ $$(cls).forEach(btn=>{
+  btn.onclick=()=>{$$(cls).forEach(b=>b.setAttribute('aria-pressed','false'));btn.setAttribute('aria-pressed','true');state[key]=btn.dataset[dataKey];renderAll();};
+  btn.onkeydown=e=>{if(e.key===' '||e.key==='Enter'){e.preventDefault();btn.click();}};
+ });
+ $$(cls).forEach(b=>b.setAttribute('aria-pressed',String(b.dataset[dataKey]==state[key])));
+}
+bindToggle('.agg','agg','agg');
+bindToggle('.lvl','level','level');
+new ResizeObserver(()=>renderAll()).observe($('.chart-wrap'));
+$('#downloadCsv').onclick=e=>{
+ e.preventDefault();
+ const rows=['month,primary_index,closest_index,aggregation,level,timestamp'];
+ for(let i=0;i<state.A.labels.length;i++){
+  rows.push([state.A.labels[i],Math.round(state.A.values[i]),Math.round(state.B.values[i]),state.agg,state.level,new Date().toISOString()].join(','));
+ }
+ const blob=new Blob([rows.join('\n')],{type:'text/csv;charset=utf-8;'});
+ const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=`labour_market_${state.agg.toLowerCase()}_lvl${state.level}.csv`;document.body.append(a);a.click();a.remove();URL.revokeObjectURL(url);
+};
+$('#printPage').onclick=e=>{e.preventDefault();window.print();};
+$('#signupForm').onsubmit=e=>{
+ e.preventDefault();
+ const email=new FormData(e.target).get('email')?.trim()||'';
+ const ok=/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+ if(!ok){alert(lang==='no'?'Skriv inn en gyldig e-postadresse.':'Please enter a valid email address.');return;}
+ const subject='Research updates — sign-up';
+ const body=`${lang==='no'?'Legg meg til oppdateringer for arbeidsmarkedsdashbordet.':'Please add me to updates for the labour market dashboard.'}\nEmail: ${email}\nAggregation: ${state.agg}\nLevel: ${state.level}\nTimestamp: ${new Date().toISOString()}`;
+ location.href='mailto:research@nav.no?subject='+encodeURIComponent(subject)+'&body='+encodeURIComponent(body);
+};
+renderAll();
+</script>
+</body>
+</html>
