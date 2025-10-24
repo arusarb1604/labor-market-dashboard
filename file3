@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Labour Market Conditions — Dashboard</title>
 <meta name="description" content="Interactive dashboard showing labour market conditions relative to the past 12 months, now with bilingual interface and customizable chart style." />
-<meta name="color-scheme" content="light dark" />
+<meta name="color-scheme" content="light dark" /> 
 <style>
 :root{
  --bg:#f7f7f8;--text:#0f172a;--muted:#64748b;--line:#e5e7eb;--card:#ffffff;
