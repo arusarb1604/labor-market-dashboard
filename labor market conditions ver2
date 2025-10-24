@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Labour Market Dashboard</title>
+<meta name="description" content="Interactive labour-market dashboard with bilingual support and chart options." />
+
+<!-- ======= DESIGN ======= -->
+<style>
+:root{
+  --bg:#f9fafb;--card:#fff;--text:#111827;--muted:#6b7280;
+  --accent:#2563eb;--red:#dc2626;--green:#16a34a;
+  --shadow:0 2px 8px rgba(0,0,0,.05);
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;color:var(--text);background:var(--bg)}
+header{background:var(--card);border-bottom:1px solid #e5e7eb;box-shadow:var(--shadow)}
+.wrap{max-width:1000px;margin:0 auto;padding:0 16px}
+.nav{display:flex;align-items:center;gap:14px;padding:14px 0}
+.logo{width:36px;height:36px;border-radius:50%;background:conic-gradient(from 90deg,#111827,#334155 75%)}
+h1{font-size:28px;margin:0}
+h2{font-size:18px;margin:0}
+.card{background:var(--card);border-radius:16px;box-shadow:var(--shadow);padding:20px;margin-top:16px}
+.grid{display:grid;gap:16px}
+@media(min-width:860px){.grid{grid-template-columns:1fr 1fr}}
+.controls{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-top:10px}
+.pill{padding:8px 14px;border:1px solid #d1d5db;border-radius:999px;cursor:pointer;font-size:14px;background:#fff}
+.pill[aria-pressed="true"]{background:var(--accent);color:#fff;border-color:var(--accent)}
+.btn-link{text-decoration:underline;font-size:14px;color:var(--accent);cursor:pointer}
+.subtle{color:var(--muted)}
+.chart-wrap{width:100%;height:340px;position:relative;margin-top:8px}
+canvas{position:absolute;inset:0;width:100%;height:100%}
+form.signup{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+form.signup input{padding:10px 12px;border:1px solid #d1d5db;border-radius:8px;min-width:260px}
+form.signup button{padding:10px 14px;border-radius:8px;background:var(--accent);color:#fff;border:0;cursor:pointer}
+footer{font-size:12px;color:var(--muted);text-align:center;padding:20px 0}
+/* dark mode */
+@media(prefers-color-scheme:dark){
+ :root{--bg:#0b1220;--card:#0f172a;--text:#e5e7eb;--muted:#94a3b8;--accent:#60a5fa;--shadow:none}
+ .pill{background:#1e293b;border-color:#334155}
+}
+</style>
+
+<!-- ======= ANALYTICS PLACEHOLDER =======
+Paste your Google Analytics or Plausible script below if desired.
+======================================== -->
+</head>
+
+<body>
+<header>
+ <div class="wrap nav">
+  <div class="logo" aria-hidden="true"></div>
+  <div>
+   <h1 id="title">Labour Market Conditions</h1>
+   <div class="subtle" id="subtitle">Current conditions vs 12-month average</div>
+  </div>
+  <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
+    <button id="langBtn" class="pill">🇬🇧 English</button>
+    <button id="styleBtn" class="pill">📈 Line</button>
+  </div>
+ </div>
+</header>
+
+<main class="wrap">
+ <section class="card">
+   <h2 id="section1">Overview</h2>
+   <div class="controls">
+     <button class="pill agg" data-agg="Municipality" aria-pressed="true">Municipality</button>
+     <button class="pill agg" data-agg="District" aria-pressed="false">District</button>
+     <button class="pill agg" data-agg="National" aria-pressed="false">National</button>
+     <div class="spacer"></div>
+     <span class="btn-link" id="downloadCsv">Download CSV</span>
+     <span class="btn-link" id="printPage">Print</span>
+   </div>
+ </section>
+
+ <section class="grid">
+  <article class="card">
+   <h2 id="chartATitle">Your occupation</h2>
+   <div class="subtle" id="idxA">Index: <b>—</b></div>
+   <div class="chart-wrap"><canvas id="chartA"></canvas></div>
+  </article>
+  <article class="card">
+   <h2 id="chartBTitle">Closest occupation</h2>
+   <div class="subtle" id="idxB">Index: <b>—</b></div>
+   <div class="chart-wrap"><canvas id="chartB"></canvas></div>
+  </article>
+ </section>
+
+ <section class="card">
+   <h2 id="signupTitle">Stay informed</h2>
+   <p id="signupText" class="subtle">Sign up for research updates.</p>
+   <form class="signup" id="signupForm">
+     <input type="email" name="email" placeholder="you@example.com" required />
+     <button type="submit" id="signupBtn">Sign up</button>
+   </form>
+ </section>
+</main>
+
+<footer>
+ <p id="footerNote">Index definition: 100 = average of previous 12 months. Above 100 means stronger conditions.</p>
+</footer>
+
+<!-- ======= LOGIC ======= -->
+<script>
+const translations={
+ en:{
+   title:"Labour Market Conditions",
+   subtitle:"Current conditions vs 12-month average",
+   section1:"Overview",
+   chartATitle:"Your occupation",
+   chartBTitle:"Closest occupation",
+   signupTitle:"Stay informed",
+   signupText:"Sign up for research updates.",
+   signupBtn:"Sign up",
+   footerNote:"Index definition: 100 = average of previous 12 months. Above 100 means stronger conditions.",
+   englishLabel:"🇬🇧 English",
+   norwegianLabel:"🇳🇴 Norsk"
+ },
+ no:{
+   title:"Arbeidsmarkedsforhold",
+   subtitle:"Nåværende forhold sammenlignet med 12-måneders snitt",
+   section1:"Oversikt",
+   chartATitle:"Yrket ditt",
+   chartBTitle:"Nærmeste yrke",
+   signupTitle:"Hold deg oppdatert",
+   signupText:"Meld deg på for å få forskningsoppdateringer.",
+   signupBtn:"Abonner",
+   footerNote:"Indeks-definisjon: 100 = gjennomsnitt for de siste 12 månedene. Over 100 betyr sterkere forhold.",
+   englishLabel:"🇬🇧 English",
+   norwegianLabel:"🇳🇴 Norsk"
+ }
+};
+
+let lang=localStorage.getItem('lang')||'en';
+function applyLang(){
+  const t=translations[lang];
+  for(const k in t){
+    const el=document.getElementById(k);
+    if(el)el.textContent=t[k];
+  }
+  document.getElementById('langBtn').textContent=
+     lang==='en'?t.norwegianLabel:t.englishLabel;
+}
+applyLang();
+
+document.getElementById('langBtn').addEventListener('click',()=>{
+  lang=lang==='en'?'no':'en';
+  localStorage.setItem('lang',lang);
+  applyLang();
+});
+
+/* ----------- data + chart rendering ----------- */
+function genSeries(seed){
+  const out=[];let r=seed;
+  for(let i=11;i>=0;i--){
+    r=(r*9301+49297)%233280;
+    const base=100+8*Math.sin(i/12*2*Math.PI);
+    const noise=(r/233280-0.5)*4;
+    out.push({m:i,v:Math.round(base+noise)});
+  }
+  return out.reverse();
+}
+const ctxA=document.getElementById('chartA').getContext('2d');
+const ctxB=document.getElementById('chartB').getContext('2d');
+let chartStyle='line';
+document.getElementById('styleBtn').addEventListener('click',()=>{
+ chartStyle=chartStyle==='line'?'bar':'line';
+ document.getElementById('styleBtn').textContent=
+   chartStyle==='line'?'📈 Line':'📊 Bar';
+ drawAll();
+});
+function drawAll(){
+ drawChart(ctxA,genSeries(5));
+ drawChart(ctxB,genSeries(9));
+}
+function drawChart(ctx,series){
+ const W=ctx.canvas.clientWidth,H=ctx.canvas.clientHeight;
+ const dpr=window.devicePixelRatio||1;
+ ctx.canvas.width=W*dpr;ctx.canvas.height=H*dpr;
+ ctx.setTransform(dpr,0,0,dpr,0,0);
+ ctx.clearRect(0,0,W,H);
+ const margin=40, plotW=W-2*margin, plotH=H-2*margin;
+ const yMin=70,yMax=130;
+ const x=i=>margin+i*(plotW/(series.length-1));
+ const y=v=>margin+(yMax-v)*(plotH/(yMax-yMin));
+ if(chartStyle==='line'){
+   ctx.strokeStyle=varColor('--accent');ctx.lineWidth=2;
+   ctx.beginPath();
+   ctx.moveTo(x(0),y(series[0].v));
+   series.forEach((p,i)=>ctx.lineTo(x(i),y(p.v)));
+   ctx.stroke();
+ }else{
+   const barW=plotW/series.length*0.6;
+   ctx.fillStyle=varColor('--accent');
+   series.forEach((p,i)=>{
+     const bx=x(i)-barW/2;
+     ctx.fillRect(bx,y(p.v),barW,H-margin-y(p.v));
+   });
+ }
+ ctx.strokeStyle="#e5e7eb";
+ for(let v=80;v<=120;v+=10){
+   ctx.beginPath();ctx.moveTo(margin,y(v));ctx.lineTo(W-margin,y(v));ctx.stroke();
+ }
+}
+function varColor(name){return getComputedStyle(document.documentElement).getPropertyValue(name).trim();}
+window.addEventListener('resize',drawAll);drawAll();
+
+/* ----------- CSV / print / signup ----------- */
+document.getElementById('downloadCsv').onclick=()=>{
+ const rows=["month,value"];
+ genSeries(5).forEach((p,i)=>rows.push(`${i},${p.v}`));
+ const blob=new Blob([rows.join("\\n")],{type:"text/csv"});
+ const a=document.createElement('a');
+ a.href=URL.createObjectURL(blob);
+ a.download='data.csv';a.click();
+};
+document.getElementById('printPage').onclick=()=>window.print();
+document.getElementById('signupForm').addEventListener('submit',e=>{
+ e.preventDefault();
+ alert(lang==='en'?'Thanks for signing up!':'Takk for påmeldingen!');
+ e.target.reset();
+});
+</script>
+</body>
+</html>
